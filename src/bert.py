@@ -1,134 +1,172 @@
-# ============================================================
-# BERT Question Answering Experiment on SQuAD
-# Author: Emmanuel Ilunga
-# Level: Undergraduate (Year 2)
-# Purpose: Fine-tuning BERT for Question Answering
-# ============================================================
-
-# --------------------
-# 1. Install libraries (only needed in Colab)
-# --------------------
-# Uncomment the next line if you run this in Colab
-# !pip install -q transformers datasets torch
-
-# --------------------
-# 2. Imports
-# --------------------
 import torch
-from datasets import load_dataset
-from transformers import BertTokenizerFast, BertForQuestionAnswering
+from torch.utils.data import DataLoader
 from torch.optim import AdamW
+from transformers import BertTokenizerFast, BertForQuestionAnswering
+from datasets import load_dataset
+import re
+from collections import Counter
 
-# --------------------
-# 3. Load SQuAD dataset
-# --------------------
-print("Loading SQuAD dataset...")
-squad = load_dataset("squad")
-
-example = squad["train"][0]
-print("\nExample from dataset:")
-print("Context:", example["context"])
-print("Question:", example["question"])
-print("Answer:", example["answers"]["text"][0])
-
-# --------------------
-# 4. Load tokenizer
-# --------------------
+# Step 1: Install and Import Libraries
 tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
+model = BertForQuestionAnswering.from_pretrained("bert-base-uncased")
 
-# --------------------
-# 5. Feature preparation function
-# Convert character-level answers to token-level positions
-# --------------------
+# Step 2: Load SQuAD v2 Dataset
+squad = load_dataset("squad_v2")
+
+# Step 3: Tokenization and Preparation of Features
 def prepare_features(example):
-    encoding = tokenizer(
+    tokenized = tokenizer(
         example["question"],
         example["context"],
         truncation=True,
         padding="max_length",
         max_length=128,
-        return_offsets_mapping=True,
-        return_tensors="pt"
+        return_offsets_mapping=True
     )
 
-    offset_mapping = encoding.pop("offset_mapping")[0]
+    offsets = tokenized["offset_mapping"]
+    answers = example["answers"]["text"]
 
-    answer_start_char = example["answers"]["answer_start"][0]
-    answer_text = example["answers"]["text"][0]
-    answer_end_char = answer_start_char + len(answer_text)
+    # Handle unanswerable case
+    if len(answers) == 0:
+        tokenized["start_positions"] = 0
+        tokenized["end_positions"] = 0
+        tokenized.pop("offset_mapping")
+        return tokenized
+
+    answer_text = answers[0]
+    answer_start = example["answers"]["answer_start"][0]
+    answer_end = answer_start + len(answer_text)
 
     start_token = 0
     end_token = 0
 
-    for idx, (start, end) in enumerate(offset_mapping):
-        if start <= answer_start_char < end:
+    for idx, (start, end) in enumerate(offsets):
+        if start <= answer_start < end:
             start_token = idx
-        if start < answer_end_char <= end:
+        if start < answer_end <= end:
             end_token = idx
             break
 
-    encoding["start_positions"] = torch.tensor([start_token])
-    encoding["end_positions"] = torch.tensor([end_token])
+    tokenized["start_positions"] = start_token
+    tokenized["end_positions"] = end_token
+    tokenized.pop("offset_mapping")
 
-    return encoding
+    return tokenized
 
-# --------------------
-# 6. Prepare a small subset (demo purpose)
-# --------------------
-print("\nPreparing training features...")
-samples = squad["train"].select(range(5))
-features = [prepare_features(s) for s in samples]
+# Apply preprocessing on the dataset
+features = squad["train"].select(range(200)).map(prepare_features)
+features.set_format(type="torch")
 
-# --------------------
-# 7. Load BERT QA model
-# --------------------
-model = BertForQuestionAnswering.from_pretrained("bert-base-uncased")
+# Step 4: DataLoader and Optimizer
+from transformers import DataCollatorWithPadding
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+loader = DataLoader(features, batch_size=4, collate_fn=data_collator)
+optimizer = AdamW(model.parameters(), lr=3e-5)
+
+# Step 5: Evaluation Metrics
+def normalize(text):
+    text = text.lower()
+    text = re.sub(r"[^\w\s]", "", text)
+    return text.strip()
+
+def f1_score_single(pred, true):
+    pred_tokens = normalize(pred).split()
+    true_tokens = normalize(true).split()
+
+    common = Counter(pred_tokens) & Counter(true_tokens)
+    num_same = sum(common.values())
+
+    if num_same == 0:
+        return 0
+
+    precision = num_same / len(pred_tokens)
+    recall = num_same / len(true_tokens)
+
+    return (2 * precision * recall) / (precision + recall)
+
+def evaluate_model(y_true, y_pred):
+    f1_scores = []
+
+    for true, pred in zip(y_true, y_pred):
+        f1_scores.append(f1_score_single(pred, true))
+    f1 = sum(f1_scores) / len(f1_scores) * 100
+
+    # Status based on F1 score
+    if f1 == 100:
+        status = "Perfect QA model"
+    elif f1 >= 90:
+        status = "Very good QA model"
+    elif f1 >= 50:
+        status = "Good model"
+    else:
+        status = "Needs improvement"
+
+    return f"F1-score: {f1:.2f}%, Status: {status}"
+
+# Step 6: Training Loop
 model.train()
 
-optimizer = AdamW(model.parameters(), lr=5e-5)
+for epoch in range(2):
+    for batch in loader:
+        optimizer.zero_grad()
 
-# --------------------
-# 8. Fine-tuning loop
-# --------------------
-print("\nStarting fine-tuning...")
-for i, feature in enumerate(features):
-    optimizer.zero_grad()
+        outputs = model(
+            input_ids=batch["input_ids"],
+            attention_mask=batch["attention_mask"],
+            start_positions=batch["start_positions"],
+            end_positions=batch["end_positions"]
+        )
 
-    outputs = model(
-        input_ids=feature["input_ids"],
-        attention_mask=feature["attention_mask"],
-        start_positions=feature["start_positions"],
-        end_positions=feature["end_positions"]
-    )
+        loss = outputs.loss
+        loss.backward()
+        optimizer.step()
 
-    loss = outputs.loss
-    loss.backward()
-    optimizer.step()
-
-    print(f"Step {i+1} - Training loss: {loss.item():.4f}")
-
-# --------------------
-# 9. Evaluation on a new example
-# --------------------
+# Step 7: Testing
 model.eval()
 
-test_context = "Yunnan University is located in Kunming, China."
-test_question = "Where is Yunnan University located?"
+test_context = "Tesla was founded in 2003 and is headquartered in Austin."
+test_question = "Where is Tesla headquartered?"
 
 inputs = tokenizer(test_question, test_context, return_tensors="pt")
 
 with torch.no_grad():
     outputs = model(**inputs)
-    start_idx = torch.argmax(outputs.start_logits)
-    end_idx = torch.argmax(outputs.end_logits)
+
+start_logits = outputs.start_logits[0]
+end_logits = outputs.end_logits[0]
+
+sequence_ids = inputs.sequence_ids()
+
+context_start = sequence_ids.index(1)
+context_end = len(sequence_ids) - 1 - sequence_ids[::-1].index(1)
+
+# mask logits outside context
+start_logits[:context_start] = -1e9
+end_logits[:context_start] = -1e9
+
+start_logits[context_end+1:] = -1e9
+end_logits[context_end+1:] = -1e9
+
+# pick best span
+start_idx = torch.argmax(start_logits)
+end_idx = torch.argmax(end_logits)
+
+if end_idx < start_idx:
+    end_idx = start_idx
+
+answer_tokens = inputs["input_ids"][0][start_idx:end_idx + 1]
 
 predicted_answer = tokenizer.decode(
-    inputs["input_ids"][0][start_idx:end_idx + 1],
-    skip_special_tokens=True
+    answer_tokens,
+    skip_special_tokens=True,
+    clean_up_tokenization_spaces=True
 )
 
-print("\n============================")
-print("Evaluation Result")
-print("============================")
-print("Question:", test_question)
-print("Predicted Answer:", predicted_answer)
+# Step 8: Example Prediction
+y_true = ["Austin, Texas", "Kunming"]
+y_pred = [predicted_answer, "kunming"]
+
+# Final Evaluation
+evaluation = evaluate_model(y_true, y_pred)
+print(evaluation)
