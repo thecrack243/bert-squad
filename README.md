@@ -81,16 +81,6 @@ What type of model is BERT?
 [Unreliable / still improving]
 ```
 
----
-
-## 📊 Current Results
-
-| Metric           | Score |
-| ---------------- | ----- |
-| Exact Match (EM) | TBD   |
-| F1 Score         | TBD   |
-
-⚠️ Results are currently unstable and under investigation.
 
 ---
 
