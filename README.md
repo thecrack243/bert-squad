@@ -23,7 +23,7 @@ The goal is to build a model that can extract precise answers from a given conte
 ## 🗂️ Project Structure
 
 ```id="u3hs1m"
-bert-qa-squad/
+bert-squad/
 │
 ├── img/
 │
@@ -44,8 +44,8 @@ bert-qa-squad/
 ## ⚙️ Installation
 
 ```bash id="b0v3s0"
-git clone https://github.com/thecrack243/bert-qa-squad.git
-cd bert-qa-squad
+git clone https://github.com/thecrack243/bert-squad.git
+cd bert-squad
 pip install -r requirements.txt
 ```
 
