@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://cdn-thumbnails.huggingface.co/social-thumbnails/spaces/TendreSamson88/bert_model.png" alt="Bert Model Banner"/>
+  <img src="img/bert_model.png" alt="Bert Model Banner"/>
 </p>
 
 # 🧠 BERT Question Answering (SQuAD)
