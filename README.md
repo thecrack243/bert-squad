@@ -1,22 +1,23 @@
-# 🧠 BERT Question Answering (SQuAD) — Work in Progress 🚧
+<p align="center">
+  <img src="https://cdn-thumbnails.huggingface.co/social-thumbnails/spaces/TendreSamson88/bert_model.png" alt="Bert Model Banner"/>
+</p>
+
+# 🧠 BERT Question Answering (SQuAD)
 
 ## 📌 Overview
 
-This project explores **Question Answering (Q&A)** using **BERT** fine-tuned on the **SQuAD dataset**.
-
-The goal is to build a model that can extract precise answers from a given context paragraph.
-
-⚠️ **Note:** This project is currently a work in progress. The model is not yet producing reliable results, and improvements are ongoing.
+This project implements a **Question Answering (Q&A)** system using **BERT (Bidirectional Encoder Representations from Transformers)**.
+The model is fine-tuned on the **SQuAD (Stanford Question Answering Dataset)** to extract answers from a given context paragraph.
 
 ---
 
 ## 🚀 Features
 
-* BERT-based extractive Question Answering
-* Training pipeline using SQuAD dataset
-* Inference script for predictions
-* Experimental implementation of Attention mechanisms
-* Continuous development with daily commits
+* Fine-tuned BERT model for extractive Q&A
+* Uses SQuAD dataset for training and evaluation
+* Predicts answer spans from context
+* Clean training and inference pipeline
+* Modular and reusable code
 
 ---
 
@@ -61,71 +62,55 @@ python src/bert.py
 
 ---
 
+---
+
 ## 🧪 Example
 
 **Context:**
 
-```id="s1d4zc"
-BERT is a transformer-based model developed by Google for natural language processing tasks.
+```id="d8fpzw"
+Tesla was founded in 2003 and is headquartered in Austin.
 ```
 
 **Question:**
 
-```id="jx3k1t"
-What type of model is BERT?
+```id="ojnddh"
+Where is Tesla headquartered?
 ```
 
-**Predicted Answer (current):**
+**Predicted Answer:**
 
-```id="rf8u2p"
-[Unreliable / still improving]
+```id="n9y5t3"
+austin
 ```
 
+---
+
+## 📊 Model Details
+
+* Model: `bert-base-uncased`
+* Task: Extractive Question Answering
+* Dataset: SQuAD
+* Framework: PyTorch
+* Library: Hugging Face Transformers
 
 ---
 
-## 🧪 Attention Experiment
+## 📈 Future Improvements
 
-An additional experiment was conducted to better understand **attention mechanisms**.
-
-* Custom attention implementation
-* Helps visualize how the model focuses on relevant parts of the input
-* Code available in `src/attention.py`
-
----
-
-## 📈 Current Challenges
-
-* Incorrect answer span predictions
-* Training instability
-* Data preprocessing issues (under investigation)
-
----
-
-## 📈 Next Steps
-
-* Fix training pipeline
-* Debug tokenization and answer alignment
-* Evaluate properly using EM and F1
-* Improve model performance
-* Compare with baseline results
-
----
-
-## 🧠 Learning Goals
-
-* Understand BERT internals
-* Master extractive Question Answering
-* Explore attention mechanisms in depth
+* Support for SQuAD v2 (unanswerable questions)
+* Add evaluation metrics (Exact Match, F1 score)
+* Deploy as an API (FastAPI / Flask)
+* Add web interface for interactive Q&A
 
 ---
 
 ## 🤝 Contributing
 
-Suggestions and feedback are welcome.
+Feel free to contribute or suggest improvements.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License. See LICENSE file for details.
+MIT License
